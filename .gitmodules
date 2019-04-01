@@ -1,0 +1,3 @@
+[submodule "components/ssd1306-oled"]
+	path = components/ssd1306-oled
+	url = https://github.com/mcbridejc/ssd1306-oled
