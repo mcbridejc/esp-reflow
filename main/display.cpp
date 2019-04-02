@@ -1,4 +1,4 @@
-#include "display.h"
+#include "Display.h"
 
 #include "profile.h"
 
