@@ -16,10 +16,10 @@ void HttpServer::init() {
 
     ESP_ERROR_CHECK(httpd_start(&mServer, &cfg));
 
-    RegisterGet("/status", HttpServer::GetStatus);
-    RegisterGet("/temphold", HttpServer::GetTempHold);
-    RegisterGet("/stop", HttpServer::GetStop);
-    RegisterGet("/start", HttpServer::GetStart);
+    RegisterGet("/api/status", HttpServer::GetStatus);
+    RegisterGet("/api/temphold", HttpServer::GetTempHold);
+    RegisterGet("/api/stop", HttpServer::GetStop);
+    RegisterGet("/api/start", HttpServer::GetStart);
     //RegisterGet("/activeprofile", HttpServer::GetActiveProfile);
 }
 
