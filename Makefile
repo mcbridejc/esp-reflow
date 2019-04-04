@@ -5,7 +5,8 @@
 
 PROJECT_NAME := reflow
 
-#EXTRA_CFLAGS += --save-temps
+#EXTRA_CFLAGS += 
+EXTRA_CPPFLAGS += -fexceptions
 
 include $(IDF_PATH)/make/project.mk
 

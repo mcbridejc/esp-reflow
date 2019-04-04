@@ -6,12 +6,21 @@
 
 class Control {
 public:
+
+    enum State_e {
+        Idle,
+        RunningProfile,
+        RunningTempHold
+    };
+
     Control(ISensor *sensor, IOutput *output);
 
     void setProfile(const profile_point_t *profile);
 
     /** Gets the current target temperature computed from the profile */
     uint16_t targetTemp() { return mTargetTemp; }
+
+    uint16_t latestTemp() { return mLatestTemp; }
 
     /** Get the currently active step in the profile sequence */
     uint16_t profileStage() { return mProfileStage; }
@@ -22,6 +31,19 @@ public:
      * until the target temperature is reached. Prior to reaching the target, 
      * this will be 0. */
     uint16_t profileElapsedTime() { return mProfileElapsed; }
+
+    uint8_t output() { return mLastOutput; }
+
+    State_e currentState() { return mState; }
+
+    /** Begin running the profile */
+    void startProfile();
+
+    /** Enter Temp Hold mode and maintain the given temperature */
+    void holdTemp(float temp);
+
+    /** Go to idle, and turn off all output power */
+    void stop();
 
     /** Must be called periodically to update the controller
      * 
@@ -36,13 +58,16 @@ private:
     IOutput *mOutput;
     const profile_point_t *mProfile;
     uint8_t mProfileStage;
+    uint8_t mLastOutput;
     float mProfileElapsed;
     float mTargetTemp;
+    float mLatestTemp;
     uint64_t mLastRunTime;
     float mKp;
     float mKi;
     float mKf;
     float mIntegration;
+    State_e mState;
 
     void advanceProfile(float curTemp, float dT);
 };

@@ -21,7 +21,9 @@ Control::Control(ISensor *sensor, IOutput *output) :
     mLastRunTime(0),
     mKp(DEFAULT_KP),
     mKi(DEFAULT_KI),
-    mKf(DEFAULT_KF)
+    mKf(DEFAULT_KF),
+    mIntegration(0.0),
+    mState(Idle)
 {
 
 }
@@ -30,18 +32,42 @@ void Control::setProfile(const profile_point_t *profile) {
     mProfile = profile;
 }
 
+void Control::startProfile() {
+    // TODO: Need some locking to make this thread-safe with stuff happening in run
+    mState = RunningProfile;
+    mProfileStage = 0;
+    mProfileElapsed = 0.0;
+    mIntegration = 0.0;
+}
+
+void Control::holdTemp(float temp) {
+    mState = RunningTempHold;
+    mIntegration = 0.0;
+    mTargetTemp = temp;
+}
+
+void Control::stop() {
+    mState = Idle;
+    mOutput->setOutput(0);
+}
+
 void Control::run() {
     uint64_t curTime_us = esp_timer_get_time();
     float delta = (curTime_us - mLastRunTime) / 1e6;
     mLastRunTime = curTime_us;
-    float curTemp = mSensor->read();
+    mLatestTemp = mSensor->read();
 
-    advanceProfile(curTemp, delta);
-
+    if(mState == Idle) {
+        mLastOutput = 0;
+        mOutput->setOutput(0);
+        return;
+    } else if(mState == RunningProfile) {
+        advanceProfile(mLatestTemp, delta);
+    }
 
     // Run a PI controller with a feedforward term
     // effort = kp * e + ki * sum(e*dT) + kf * targetTemp
-    float e = mTargetTemp - curTemp;
+    float e = mTargetTemp - mLatestTemp;
 
     float effort = (mKp * e + mKi * mIntegration + mKf * mTargetTemp);
 
@@ -57,7 +83,8 @@ void Control::run() {
         effort = 100;
     }
 
-    mOutput->setOutput((uint8_t)effort);
+    mLastOutput = (uint8_t)effort;
+    mOutput->setOutput(mLastOutput);
 }
 
 void Control::advanceProfile(float curTemp, float dT) {

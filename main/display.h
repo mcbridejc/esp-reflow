@@ -21,8 +21,6 @@ public:
 
     void setOutput(uint8_t output);
 
-    void setTimer(uint32_t seconds);
-
     void setProfile(const profile_point_t *profile, uint16_t stage, uint16_t sec_into_stage);
 
     void setStatus(const char *status);
@@ -32,7 +30,6 @@ private:
     OLEDDisplay *mDisplay;
     const profile_point_t *mProfile;
     const char *mStatus;
-    uint32_t mTimer;
     uint16_t mProfileStage;
     uint16_t mProfileTime;
     uint16_t mTempReading;

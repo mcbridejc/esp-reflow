@@ -18,35 +18,38 @@ void Display::setTempTarget(uint16_t temp_c) {
 void Display::setOutput(uint8_t output) {
     mOutput = output;
 }
-void Display::setTimer(uint32_t seconds) {
-    mTimer = seconds;
-}
 
 void Display::setProfile(const profile_point_t *profile, uint16_t stage, uint16_t sec_into_stage) {
     mProfile = profile;
     mProfileStage = stage;
     mProfileTime = sec_into_stage;
 }
+
 void Display::setStatus(const char *status) {
     mStatus = status;
 }
 
-#define TEMP2Y(t) (top + height - (t * height / maxTemp))
+#define TEMP2Y(t) (top + height - ((t-minTemp) * height / (maxTemp - minTemp)))
 void Display::renderProfile(uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
 
     uint16_t totalTime = 0;
     uint16_t maxTemp = 0;
+    uint16_t minTemp = 100;
     uint16_t x = left;
     uint8_t stageCount = 0;
-    uint16_t prevTemp = 20;
+    uint16_t prevTemp;
     const profile_point_t *p = mProfile;
     while(p->duration > 0) {
         totalTime += p->duration;
         if(p->temp > maxTemp) {
             maxTemp = p->temp;
         }
+        if(p->temp < minTemp) {
+            minTemp = p->temp;
+        }
         p++;
     }
+    prevTemp = minTemp;
 
     p = mProfile;
     while(p->duration > 0) {
@@ -70,6 +73,9 @@ void Display::renderProfile(uint16_t left, uint16_t top, uint16_t width, uint16_
         stageCount++;
         p++;
     }
+    mDisplay->drawLine(left, top, left, top+height);
+    mDisplay->drawLine(left, top+height, left+width, top+height);
+    mDisplay->drawLine(left+width, top, left+width, top+height);
 }
 
 void Display::update() {
@@ -77,16 +83,13 @@ void Display::update() {
 
     uint32_t min, sec;
 
-    min = mTimer / 60;
-    sec = mTimer % 60;
-
     mDisplay->clear();
     mDisplay->setFont(ArialMT_Plain_10);
 
     if(mStatus) {
         mDisplay->drawString(0, 0, mStatus);
     }
-    snprintf(buf, sizeof(buf), "%dm%ds", min, sec);
+    snprintf(buf, sizeof(buf), "Stp %d %ds", mProfileStage, mProfileTime);
     mDisplay->drawString(0, 12, buf);
     mDisplay->drawString(0, 30, "Meas");
     mDisplay->drawString(48, 30, "Targ");

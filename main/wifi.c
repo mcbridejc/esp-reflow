@@ -52,11 +52,6 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 
 void setup_mdns()
 {
-    uint8_t chipid[6];
-    esp_efuse_mac_get_default(chipid);
-    char hostname[32];
-    snprintf(hostname, sizeof(hostname), "exp_%02x%02x", chipid[4], chipid[5]);
-
     //initialize mDNS service
     esp_err_t err = mdns_init();
     if (err) {
@@ -64,11 +59,11 @@ void setup_mdns()
         return;
     }
 
-    ESP_LOGI("[main]", "Setting mDNS hostname to %s", hostname);
+    ESP_LOGI("[main]", "Setting mDNS hostname to reflow");
     //set hostname
-    mdns_hostname_set(hostname);
+    mdns_hostname_set("reflow");
     //set default instance
-    mdns_instance_name_set("Explorer Node");
+    mdns_instance_name_set("Reflow Toaster");
     mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
 }
 
