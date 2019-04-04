@@ -19,7 +19,7 @@ void HttpServer::init() {
     RegisterGet("/status", HttpServer::GetStatus);
     RegisterGet("/temphold", HttpServer::GetTempHold);
     RegisterGet("/stop", HttpServer::GetStop);
-    //RegisterGet("/start", HttpServer::GetStart);
+    RegisterGet("/start", HttpServer::GetStart);
     //RegisterGet("/activeprofile", HttpServer::GetActiveProfile);
 }
 
@@ -92,5 +92,25 @@ esp_err_t HttpServer::GetTempHold(httpd_req_t *req) {
     snprintf(respBuf, sizeof(respBuf), "Setting temp to %d", tempHold);
     httpd_resp_send(req, respBuf, strlen(respBuf));
 
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::GetStart(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+
+    ctx->mControl->startProfile();
+
+    const char *resp = "Starting profile";
+    httpd_resp_send(req, resp, strlen(resp));
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::GetStop(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+
+    ctx->mControl->stop();
+
+    const char *resp = "Stopping controller";
+    httpd_resp_send(req, resp, strlen(resp));
     return ESP_OK;
 }
