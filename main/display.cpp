@@ -81,8 +81,6 @@ void Display::renderProfile(uint16_t left, uint16_t top, uint16_t width, uint16_
 void Display::update() {
     char buf[12];
 
-    uint32_t min, sec;
-
     mDisplay->clear();
     mDisplay->setFont(ArialMT_Plain_10);
 
