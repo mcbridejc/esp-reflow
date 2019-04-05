@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
+#include "esp_spiffs.h"
 #include "esp_system.h"
 
 #include "Display.h"
@@ -128,11 +129,25 @@ void main_loop(Display &display, Max31855 &sensor) {
 
 void app_main() {
     esp_err_t ret;
-    const esp_app_desc_t *app_desc;
-    app_desc = esp_ota_get_app_description();
+    // const esp_app_desc_t *app_desc;
+    // app_desc = esp_ota_get_app_description();
+
+
+    esp_vfs_spiffs_conf_t conf = {
+      .base_path = "/www",
+      .partition_label = "jsclient",
+      .max_files = 10,
+      .format_if_mount_failed = false
+    };
+
+    // Use settings defined above to initialize and mount SPIFFS filesystem.
+    // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
+    ESP_ERROR_CHECK( esp_vfs_spiffs_register(&conf) );
+
 
     esp_log_level_set("spi_master", ESP_LOG_VERBOSE);
     esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("httpd", ESP_LOG_DEBUG);
 
     SSD1306 ssd1306(GPIO_NUM_4, GPIO_NUM_15, GPIO_NUM_16);
     ssd1306.init();

@@ -15,6 +15,7 @@ public:
     static esp_err_t GetActiveProfile(httpd_req_t *req);
     static esp_err_t GetLog(httpd_req_t *req);    
 
+    static esp_err_t GetFile(httpd_req_t *req);
 private:
     Control *mControl;
     httpd_handle_t mServer;

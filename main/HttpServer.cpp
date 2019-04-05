@@ -2,9 +2,13 @@
 
 #include "json/json.h"
 
+#include "esp_log.h"
+
 #include <string>
 
 #define JSON_BUFFER_SIZE 4096
+
+static const char *TAG = "HttpServer";
 
 HttpServer::HttpServer(Control *control) : mControl(control) 
 {
@@ -13,6 +17,7 @@ HttpServer::HttpServer(Control *control) : mControl(control)
 
 void HttpServer::init() {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
+    cfg.uri_match_fn = httpd_uri_match_wildcard;
 
     ESP_ERROR_CHECK(httpd_start(&mServer, &cfg));
 
@@ -20,7 +25,17 @@ void HttpServer::init() {
     RegisterGet("/api/temphold", HttpServer::GetTempHold);
     RegisterGet("/api/stop", HttpServer::GetStop);
     RegisterGet("/api/start", HttpServer::GetStart);
+    //RegisterGet("/api/log", HttpServer::GetLog);
     //RegisterGet("/activeprofile", HttpServer::GetActiveProfile);
+
+    // Now register a catch-all to serve files
+    httpd_uri_t route = {
+        .uri = "*",
+        .method = HTTP_GET,
+        .handler = HttpServer::GetFile,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(mServer, &route);
 }
 
 void HttpServer::RegisterGet(const char *uri, esp_err_t (*handler)(httpd_req_t *r)) {
@@ -112,5 +127,36 @@ esp_err_t HttpServer::GetStop(httpd_req_t *req) {
 
     const char *resp = "Stopping controller";
     httpd_resp_send(req, resp, strlen(resp));
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::GetFile(httpd_req_t *req) {
+    const int CHUNKSIZE = 4096;
+    std::string path = "/www";
+    if(strcmp("/", req->uri) == 0) {
+        path += "/index.html";
+    } else {
+        path += req->uri;
+    }
+
+    FILE* f = fopen(path.c_str(), "r");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "Failed to open %s", path.c_str());
+        httpd_resp_send_404(req);
+        return ESP_OK;
+    }
+
+    char *chunk = (char *)malloc(CHUNKSIZE);
+    if(chunk == NULL) {
+        return ESP_FAIL;
+    }
+    int readlength = 0xffff;
+    while(readlength > 0) {
+        readlength = fread(chunk, 1, CHUNKSIZE, f);
+        httpd_resp_send_chunk(req, chunk, readlength);
+    }
+    // Call with 0 data to finish the transmission and close socket
+    httpd_resp_send_chunk(req, NULL, 0);
+
     return ESP_OK;
 }
