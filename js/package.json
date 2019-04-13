@@ -24,6 +24,7 @@
   },
   "scripts": {
     "build": "webpack --config webpack.prod.js",
-    "start": "webpack-dev-server --mode development --config webpack.dev.js"
+    "start": "webpack-dev-server --mode development --config webpack.dev.js",
+    "start-mock": "webpack-dev-server --mode development --config webpack.mock.js"
   }
 }
