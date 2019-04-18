@@ -19,7 +19,6 @@ const styles = theme => ({
       overflowX: 'auto',
   },
   panel: {
-    width: '80%'
   },
   stateLabelCell: {
       fontSize: '1.5em'
@@ -161,7 +160,6 @@ class ControlPanel extends Component {
   render() {
     const { classes } = this.props;
     return (
-    <Grid key="panel" item>
       <Paper className={classes.panel}>
         <Table>
           <TableBody>
@@ -195,7 +193,6 @@ class ControlPanel extends Component {
           </TableBody>
         </Table>
       </Paper>
-    </Grid>
     )
   }
 }

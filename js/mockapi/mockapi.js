@@ -1,4 +1,5 @@
-// Mock routes for solder profile management
+// Mock routes for reflow HTTP API
+// For developing the javascript front-end sans device
 
 /* 
 
@@ -35,29 +36,25 @@ profiles = [
     'name': 'lead',
     'steps': [
       {
-        'steps': [
-          {
-            'temp': 150,
-            'duration': 60,
-            'ramp': 1,
-          },
-          {
-            'temp': 165,
-            'duration': 90,
-            'ramp': 0
-          },
-          {
-            'temp': 225,
-            'duration': 40,
-            'ramp': 0
-          },
-          {
-            'temp': 150,
-            'duration': 25,
-            'ramp': 0
-          },
-        ]
-      }
+        'temp': 150,
+        'duration': 60,
+        'ramp': 1,
+      },
+      {
+        'temp': 165,
+        'duration': 90,
+        'ramp': 1
+      },
+      {
+        'temp': 225,
+        'duration': 40,
+        'ramp': 0
+      },
+      {
+        'temp': 150,
+        'duration': 25,
+        'ramp': 0
+      },
     ]
   },
   {
@@ -87,11 +84,13 @@ profiles = [
   }
 ]
 
-index = (request, response) => {
+activeProfile = profiles[0];
+
+profilesIndex = (request, response) => {
   response.json(profiles);
 }
 
-create = (request, response) => {
+profilesCreate = (request, response) => {
   let reqjson = request.body;
   let found = profiles.some((p) => {return p.name == reqjson['name']; })
   if(found) { 
@@ -102,18 +101,20 @@ create = (request, response) => {
   }
 }
 
-update = (request, response) => {
-  reqname = request.params.name;
-  updateProfile = profiles.find((p) => { p.name == reqname; });
-  updateIndex = profiles.indexOf(updateProfile);
+profilesUpdate = (request, response) => {
+  let reqjson = request.body;
+  let reqname = request.params.name;
+  let updateProfile = profiles.find((p) => { return p.name == reqname; });
+  let updateIndex = profiles.indexOf(updateProfile);
   if(updateProfile) {
-    profiles[updateIndex] = request.json();
+    profiles[updateIndex] = reqjson;
+    response.json(profiles);
   } else {
     response.status(404).json({'message': 'Profile not found'});
   }
 }
 
-destroy = (request, response) => {
+profilesDestroy = (request, response) => {
   reqname = request.params.name;
   deleteProfile = profiles.find((p) => { return p.name == reqname; });
   deleteIndex = profiles.indexOf(deleteProfile);
@@ -125,10 +126,42 @@ destroy = (request, response) => {
   }
 }
 
+profilesActive = (request, response) => {
+  response.json(activeProfile);
+}
+
+activate = (request, response) => {
+  reqname = request.params.name;
+  profile = profiles.find((p) => { return p.name == reqname; });
+  if(profile) {
+    activeProfile = profile;
+    response.json({"message": "Activated profile"});
+  } else {
+    response.status(404).json({"message": "Profile not found"});
+  }
+}
+
+
+status = (request, response) => {
+  response.json({
+    "temperature": 101,
+    "targetTemperature": 105,
+    "profileStage": 0,
+    "profileElapsedTime": 1,
+    "output": 50,
+    "state": "idle",
+  })
+}
+
 module.exports = {
-  'index': index,
-  'create': create,
-  'update': update,
-  'destroy': destroy
+  'profiles': {
+    'index': profilesIndex,
+    'create': profilesCreate,
+    'update': profilesUpdate,
+    'destroy': profilesDestroy,
+    'active': profilesActive
+  },
+  'status': status,
+  'activate': activate
 };
 
