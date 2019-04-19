@@ -14,11 +14,16 @@ ReflowLog::ReflowLog(uint16_t bufferSize) {
     }
 
     mAllocSize = bufferSize;
-    mSize = 0;
+    reset();
 }
 
 void ReflowLog::reset() {
     mSize = 0;
+    mRotate = 0;
+}
+
+ReflowLog::Entry& ReflowLog::operator[](int index) {
+    return mData[(mRotate + index) % mAllocSize];
 }
 
 void ReflowLog::log(
@@ -32,7 +37,8 @@ void ReflowLog::log(
     if(mSize < mAllocSize) {
         mData[mSize++] = e; 
     } else {
-        printf("Log overflow");
+        mData[mRotate] = e;
+        mRotate = (mRotate + 1) % mAllocSize;
     }
 }
 

@@ -22,14 +22,13 @@ public:
         uint16_t targetTemp,
         uint8_t output);
 
-    Entry &operator[](int index) {
-        return mData[index];
-    }
-
+    Entry &operator[](int index);
+    
     uint32_t size() { return mSize; }
 
 private:
     Entry *mData;
     uint32_t mAllocSize;
     uint32_t mSize;
+    uint32_t mRotate;
 };

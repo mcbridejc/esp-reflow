@@ -1,11 +1,16 @@
 #include "Control.h"
 #include "ProfileManager.h"
+#include "ReflowLog.h"
 
 #include "esp_http_server.h"
 
 class HttpServer {
 public:
-    HttpServer(Control *control, ProfileManager *profile_manager);
+    HttpServer(
+            Control *control,
+            ProfileManager *profile_manager,
+            ReflowLog *log
+    );
 
     void init();
 
@@ -25,6 +30,7 @@ public:
 private:
     Control *mControl;
     ProfileManager *mProfileManager;
+    ReflowLog *mLog;
     httpd_handle_t mServer;
 
     void RegisterGet(const char *uri, esp_err_t (*handler)(httpd_req_t *r));

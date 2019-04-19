@@ -10,10 +10,14 @@
 
 static const char *TAG = "HttpServer";
 
-HttpServer::HttpServer(Control *control, ProfileManager *profile_manager)
+HttpServer::HttpServer(
+        Control *control,
+        ProfileManager *profile_manager,
+        ReflowLog *log)
 {
     mControl = control;
     mProfileManager = profile_manager;
+    mLog = log;
 }
 
 void HttpServer::init() {
@@ -28,7 +32,7 @@ void HttpServer::init() {
     RegisterGet("/api/temphold", HttpServer::GetTempHold);
     RegisterGet("/api/stop", HttpServer::GetStop);
     RegisterGet("/api/start", HttpServer::GetStart);
-    //RegisterGet("/api/log", HttpServer::GetLog);
+    RegisterGet("/api/log", HttpServer::GetLog);
     
     RegisterGet("/api/activate/*", HttpServer::GetActivate);
 
@@ -143,10 +147,35 @@ esp_err_t HttpServer::GetTempHold(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t HttpServer::GetLog(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+    Json::Value root = Json::objectValue;
+    Json::FastWriter jsonWriter;
+
+    root["timestamp_ms"] = Json::arrayValue;
+    root["integratorSum"] = Json::arrayValue;
+    root["measuredTemperature"] = Json::arrayValue;
+    root["targetTemperature"] = Json::arrayValue;
+    root["output"] = Json::arrayValue;
+    for(int i=0; i<ctx->mLog->size(); i++) {
+        ReflowLog::Entry &e = (*ctx->mLog)[i];
+        root["timestamp_ms"][i] = e.timestamp_ms;
+        root["integratorSum"][i] = e.integratorSum;
+        root["measuredTemperature"][i] = e.measuredTemp;
+        root["targetTemperature"][i] = e.targetTemp;
+        root["output"][i] = e.output;
+    }
+
+    std::string resp = jsonWriter.write(root);
+    httpd_resp_send(req, &resp[0], resp.size());
+    return ESP_OK;
+}
+
 esp_err_t HttpServer::GetStart(httpd_req_t *req) {
     HttpServer *ctx = (HttpServer*)req->user_ctx;
 
     ctx->mControl->startProfile();
+    ctx->mLog->reset();
 
     const char *resp = "Starting profile";
     httpd_resp_send(req, resp, strlen(resp));

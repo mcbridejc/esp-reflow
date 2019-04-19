@@ -89,12 +89,15 @@ void main_loop(Display &display, Max31855 &sensor) {
     ReflowLog log(500);
     ProfileManager profileManager("/storage/profiles.json");
     profileManager.init();
-    HttpServer http(&control, &profileManager);
+    HttpServer http(&control, &profileManager, &log);
     http.init();
     control.setProfile(profileManager.getActiveProfile());
 
     while(1) {
         control.run();
+        if(control.currentState() != Control::Idle) {
+            log.log(control.integrationValue(), sensor.lastReading(), control.targetTemp(), control.output());
+        }
         display.setTempReading(sensor.lastReading());
         display.setTempTarget(control.targetTemp());
         display.setOutput(control.output());

@@ -5,6 +5,7 @@ import Paper from '@material-ui/core/Paper';
 import { withStyles } from '@material-ui/core/styles';
 
 import ControlPanel from './ControlPanel.js';
+import LogGraph from './LogGraph.js';
 import StatusBoard from './StatusBoard.js';
 import ProfilePanel from './ProfilePanel.js';
 
@@ -89,6 +90,9 @@ class App extends Component {
           </Grid>
           <Grid item xs={8}>
             <ProfilePanel></ProfilePanel>
+          </Grid>
+          <Grid item xs={8}>
+            <LogGraph />
           </Grid>
         </Grid>
       </div>
