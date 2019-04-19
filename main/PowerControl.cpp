@@ -5,6 +5,7 @@
 
 PowerControl::PowerControl(int gpio) : mGpio(gpio) 
 {
+    mTimerHandle = NULL;
     gpio_set_level((gpio_num_t)mGpio, 0);
     gpio_set_direction((gpio_num_t)mGpio, GPIO_MODE_OUTPUT);
 }
