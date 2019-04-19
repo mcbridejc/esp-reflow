@@ -42,8 +42,6 @@ class ProfileGraph extends Component {
     
     if(this.props.profile && this.props.profile.steps) {
       this.props.profile.steps.forEach((step) => {
-
-        console.log(step);
         if(step.ramp == 1) {
           values.push({x: time, y: lastTemp});
         } else {
