@@ -198,9 +198,15 @@ class ProfileList extends Component {
   }
   
   handleEdit(name) {
+    var profileToEdit;
+    if(name) {
+      profileToEdit = jsonCopy(this.props.profiles.find((p) => { return p.name == name; }));
+    } else {
+      profileToEdit = {name: "NewProfile", steps: []};
+    }
     this.setState({
       editing: true, 
-      editProfile: jsonCopy(this.props.profiles.find((p) => { return p.name == name; })),
+      editProfile: profileToEdit,
       editProfileName: name
     });
   }
@@ -226,25 +232,32 @@ class ProfileList extends Component {
       );
     } else if(this.props.profiles) {
       return (
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Profile Name</TableCell>
-              <TableCell></TableCell>
-              <TableCell></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {this.props.profiles.map(p => (
-              <TableRow key={p.name}>
-                <TableCell>{p.name}</TableCell>
-                <TableCell><Button onClick={() => this.props.onActivate(p.name)}>Activate</Button></TableCell>
-                <TableCell><Button onClick={() => this.handleEdit(p.name)}>Edit</Button></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <Grid container spacing={16}>
+          <Grid item xs={12}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Profile Name</TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {this.props.profiles.map(p => (
+                  <TableRow key={p.name}>
+                    <TableCell>{p.name}</TableCell>
+                    <TableCell><Button onClick={() => this.props.onActivate(p.name)}>Activate</Button></TableCell>
+                    <TableCell><Button onClick={() => this.handleEdit(p.name)}>Edit</Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Grid>
+          <Grid item xs={12}>
+            <Button color="primary" variant="contained" onClick={() => this.handleEdit(null)}>Create New Profile</Button>
+          </Grid>
 
+        </Grid>
       )
     } else {
       return <CircularProgress className={classes.spinner}></CircularProgress>
@@ -324,6 +337,22 @@ class ProfilePanel extends Component {
           console.log("Error saving profile: ", error.message);
         }
       )
+    } else {
+      fetch('/api/profiles', {
+        method: 'post',
+        body: JSON.stringify(newProfile),
+        headers: {'Content-Type': 'application/json'}
+      })
+      .then(res => res.json())
+      .then(
+        (result) => {
+          this.setState({profiles: result});
+        }, 
+        (error) => {
+          alert("Error creating profile: ", error.message);
+          console.log("Error creating profile: ", error.message);
+        }
+      )
     }
   }
 
@@ -344,10 +373,14 @@ class ProfilePanel extends Component {
         <Button onClick={this.handleClickEdit}>Change</Button>
         <ProfileGraph profile={this.state.activeProfile}></ProfileGraph>
         <Dialog open={this.state.openDialog} onClose={this.handleClose}>
-          <DialogTitle>Change active profile</DialogTitle>
+          <DialogTitle>Manage profiles</DialogTitle>
           <DialogContent>
             <ProfilesListStyled profiles={this.state.profiles} onActivate={this.activateProfile} onChange={this.saveProfile}></ProfilesListStyled>
+
           </DialogContent>
+          <DialogActions>
+            <Button color="primary" variant="contained" onClick={this.handleClose}>Done</Button>
+          </DialogActions>
         </Dialog>
       </Paper>
     );
