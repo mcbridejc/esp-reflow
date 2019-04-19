@@ -1,0 +1,8 @@
+{
+  "lead-free": [
+    {"temp": 150, "duration": 60, "ramp": 1},
+    {"temp": 185, "duration": 120, "ramp": 1},
+    {"temp": 245, "duration": 40, "ramp": 0},
+    {"temp": 150, "duration": 60, "ramp": 1},
+  ]
+}
