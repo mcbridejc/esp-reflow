@@ -202,7 +202,9 @@ esp_err_t HttpServer::GetActivate(httpd_req_t *req) {
         httpd_resp_send_500(req);
         return ESP_OK;
     }
+    ctx->mProfileManager->save();
     ctx->mControl->setProfile(ctx->mProfileManager->getActiveProfile());
+
     const char *resp = "Set active profile";
     httpd_resp_send(req, resp, strlen(resp));
     return ESP_OK;
@@ -255,12 +257,13 @@ esp_err_t HttpServer::ProfilesCreate(httpd_req_t *req) {
         newProfile.addStep(step);
     }
     success = ctx->mProfileManager->createProfile(newProfile);
-
     if(!success) {
         ESP_LOGE(TAG, "Error creating profile %s", newProfile.name());
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
+
+    ctx->mProfileManager->save();
 
     std::string jsondata = ctx->SerializedProfiles();
     httpd_resp_send(req, &jsondata[0], jsondata.size());
@@ -337,6 +340,8 @@ esp_err_t HttpServer::ProfilesUpdate(httpd_req_t *req) {
         httpd_resp_send_500(req);
         return ESP_OK;
     }
+
+    ctx->mProfileManager->save();
     
     std::string jsondata = ctx->SerializedProfiles();
     httpd_resp_send(req, &jsondata[0], jsondata.size());
@@ -351,6 +356,8 @@ esp_err_t HttpServer::ProfilesDestroy(httpd_req_t *req) {
         httpd_resp_send_500(req);
         return ESP_OK;
     }
+
+    ctx->mProfileManager->save();
 
     std::string jsondata = ctx->SerializedProfiles();
     httpd_resp_send(req, &jsondata[0], jsondata.size());    
