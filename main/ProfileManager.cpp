@@ -17,9 +17,6 @@ ProfileManager::ProfileManager(const char *config_path) : mActiveProfile("empty"
 
 void ProfileManager::init() {
   readProfiles();
-  if(mProfiles.size() > 0) {
-    mActiveProfile = mProfiles[0];
-  }
 }
 
 void ProfileManager::save() {
@@ -116,6 +113,7 @@ void ProfileManager::readProfiles() {
     return;
   }
   fread(buf, 1, finfo.st_size, f);
+  fclose(f);
   bool success = jsonReader.parse(buf, buf+finfo.st_size, root, false);
   free(buf);
 
@@ -128,25 +126,38 @@ void ProfileManager::readProfiles() {
 
   // Root object is a dict; keys are the names of the profiles, values are an array of 
   // step objects like [{"temp": 0, "duration": 50, "ramp": 0},...]
-  std::vector<std::string> names = root.getMemberNames();
-  for(auto it=names.begin(); it != names.end(); it++) {
-    Profile newProfile((*it).c_str());
-    Json::Value profileNode = root[*it];
-    for(int i=0; i < profileNode.size(); i++) {
-      ProfileStep point = {
-        .temp =  (uint16_t)profileNode["temp"].asInt(),
-        .duration = (uint16_t)profileNode["duration"].asInt(),
-        .ramp = (uint8_t)profileNode["ramp"].asInt()
-      };
-      newProfile.addStep(point);
+  try {
+    std::vector<std::string> names = root["profiles"].getMemberNames();
+    for(auto it=names.begin(); it != names.end(); it++) {
+      Profile newProfile((*it).c_str());
+      Json::Value profileNode = root[*it];
+      for(int i=0; i < profileNode.size(); i++) {
+        ProfileStep point = {
+          .temp =  (uint16_t)profileNode[i]["temp"].asInt(),
+          .duration = (uint16_t)profileNode[i]["duration"].asInt(),
+          .ramp = (uint8_t)profileNode[i]["ramp"].asInt()
+        };
+        newProfile.addStep(point);
+      }
+      mProfiles.push_back(newProfile);
     }
-    mProfiles.push_back(newProfile);
+    std::string activeProfileName = root["activeProfile"].asString();
+    int activeIdx = findIndexByName(activeProfileName.c_str());
+    if(activeIdx < 0 && mProfiles.size() > 0) {
+      activeIdx = 0;
+    }
+    if(activeIdx >= 0) {
+      mActiveProfile = mProfiles[activeIdx];
+    }
+  } catch (Json::LogicError &ex) {
+    ESP_LOGE(TAG, "Error parsing profiles JSON: %s", ex.what());
   }
+
 }
 
 void ProfileManager::saveProfiles() {
   Json::Value root;
-
+  Json::FastWriter jsonWriter;
   for(auto profile=mProfiles.begin(); profile!=mProfiles.end(); profile++) {
     Json::Value stepsNode = Json::arrayValue;
     for(int stepIndex = 0; stepIndex < (*profile).size(); stepIndex++) {
@@ -156,11 +167,19 @@ void ProfileManager::saveProfiles() {
       stepObj["ramp"] = (*profile)[stepIndex].ramp;
       stepsNode[stepIndex] =stepObj;
     }
-    root[(*profile).name()] = stepsNode;
+    root["profiles"][(*profile).name()] = stepsNode;
   }
+  root["activeProfile"] = mActiveProfile.name();
 
+  FILE *f = fopen(mConfigPath.c_str(), "w");
+  if(f == NULL) {
+    ESP_LOGE(TAG, "Error opening %s for write", mConfigPath.c_str());
+    return;
+  }
+  std::string data = jsonWriter.write(root);
+  fwrite(&data[0], 1, data.size(), f);
+  fclose(f);
 }
-
 
 static const ProfileStep DEFAULT_PROFILE[] = {
     {150, 60, 0}, // Preheat
