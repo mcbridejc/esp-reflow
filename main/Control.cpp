@@ -8,7 +8,7 @@
 #define TEMP_MARGIN 3
 
 // Default controller gains
-#define DEFAULT_KP (5.0)
+#define DEFAULT_KP (8.0)
 #define DEFAULT_KI (0.2)
 #define DEFAULT_KF (0.15)
 
