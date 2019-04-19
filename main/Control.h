@@ -15,7 +15,7 @@ public:
 
     Control(ISensor *sensor, IOutput *output);
 
-    void setProfile(const profile_point_t *profile);
+    void setProfile(const Profile &profile);
 
     /** Gets the current target temperature computed from the profile */
     uint16_t targetTemp() { return mTargetTemp; }
@@ -56,7 +56,7 @@ public:
 private:
     ISensor *mSensor;
     IOutput *mOutput;
-    const profile_point_t *mProfile;
+    Profile mProfile;
     uint8_t mProfileStage;
     uint8_t mLastOutput;
     float mProfileElapsed;

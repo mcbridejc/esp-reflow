@@ -10,14 +10,17 @@
 
 static const char *TAG = "HttpServer";
 
-HttpServer::HttpServer(Control *control) : mControl(control) 
+HttpServer::HttpServer(Control *control, ProfileManager *profile_manager)
 {
-
+    mControl = control;
+    mProfileManager = profile_manager;
 }
 
 void HttpServer::init() {
+    httpd_uri_t route;
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.uri_match_fn = httpd_uri_match_wildcard;
+    cfg.max_uri_handlers = 20;
 
     ESP_ERROR_CHECK(httpd_start(&mServer, &cfg));
 
@@ -26,10 +29,40 @@ void HttpServer::init() {
     RegisterGet("/api/stop", HttpServer::GetStop);
     RegisterGet("/api/start", HttpServer::GetStart);
     //RegisterGet("/api/log", HttpServer::GetLog);
-    //RegisterGet("/activeprofile", HttpServer::GetActiveProfile);
+    
+    RegisterGet("/api/activate/*", HttpServer::GetActivate);
+
+    // Profile management routes
+    RegisterGet("/api/profiles", HttpServer::ProfilesIndex);
+
+    RegisterGet("/api/profiles/active", HttpServer::ProfilesActive);
+
+    route = {
+        .uri = "/api/profiles",
+        .method = HTTP_POST,
+        .handler = HttpServer::ProfilesCreate,
+        .user_ctx = this
+    };
+    httpd_register_uri_handler(mServer, &route);
+
+    route = {
+        .uri = "/api/profiles/*",
+        .method = HTTP_PUT,
+        .handler = HttpServer::ProfilesUpdate,
+        .user_ctx = this
+    };
+    httpd_register_uri_handler(mServer, &route);
+
+    route = {
+        .uri = "/api/profiles/*",
+        .method = HTTP_DELETE,
+        .handler = HttpServer::ProfilesDestroy,
+        .user_ctx = this
+    };
+    httpd_register_uri_handler(mServer, &route);
 
     // Now register a catch-all to serve files
-    httpd_uri_t route = {
+    route = {
         .uri = "*",
         .method = HTTP_GET,
         .handler = HttpServer::GetFile,
@@ -130,6 +163,171 @@ esp_err_t HttpServer::GetStop(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t HttpServer::GetActivate(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+    
+    std::string name = GetLastPathNode(req->uri);
+    bool success = ctx->mProfileManager->setActiveProfile(name.c_str());
+    if(!success) {
+        ESP_LOGW(TAG, "Failed to set active profile to %s", name.c_str());
+        httpd_resp_send_500(req);
+        return ESP_OK;
+    }
+    ctx->mControl->setProfile(ctx->mProfileManager->getActiveProfile());
+    const char *resp = "Set active profile";
+    httpd_resp_send(req, resp, strlen(resp));
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::ProfilesActive(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+    Json::Value root;
+    Json::FastWriter jsonWriter;
+
+    Profile &activeProfile = ctx->mProfileManager->getActiveProfile();
+    root["name"] = activeProfile.name();
+    root["steps"] = Json::arrayValue;
+    for(int i=0; i<activeProfile.size(); i++) {
+        root["steps"][i]["temp"] = activeProfile[i].temp;
+        root["steps"][i]["duration"] = activeProfile[i].duration;
+        root["steps"][i]["ramp"] = activeProfile[i].ramp;
+    }
+    std::string resp = jsonWriter.write(root);
+    httpd_resp_send(req, &resp[0], resp.size());
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::ProfilesCreate(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+    Json::Value root;
+    Json::Reader jsonReader;
+    char *recvBuf = (char *)malloc(req->content_len);
+    if(recvBuf == NULL) {
+        return ESP_FAIL;
+    }
+    httpd_req_recv(req, recvBuf, req->content_len);
+    bool success = jsonReader.parse(recvBuf, recvBuf + req->content_len, root, false);
+    free(recvBuf);
+    if(!success) {
+        ESP_LOGE(TAG, "Failed to parse json in profiles create request");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Creating profile %s", root["name"].asString().c_str());
+
+    Profile newProfile(root["name"].asString().c_str());
+    for(int i=0; i<root["steps"].size(); i++) {
+        Json::Value &jsonStep = root["steps"][i];
+        ProfileStep step = {
+            .temp = (uint8_t)jsonStep["temp"].asInt(),
+            .duration = (uint8_t)jsonStep["duration"].asInt(),
+            .ramp = (uint8_t)jsonStep["ramp"].asInt()
+        };
+        newProfile.addStep(step);
+    }
+    success = ctx->mProfileManager->createProfile(newProfile);
+
+    if(!success) {
+        ESP_LOGE(TAG, "Error creating profile %s", newProfile.name());
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    std::string jsondata = ctx->SerializedProfiles();
+    httpd_resp_send(req, &jsondata[0], jsondata.size());
+    return ESP_OK;
+}
+
+std::string HttpServer::SerializedProfiles() {
+    Json::Value root = Json::arrayValue;
+    Json::FastWriter jsonWriter;
+
+    std::vector<Profile> profiles = mProfileManager->getAllProfiles();
+    for(int i=0; i<profiles.size(); i++) { 
+        root[i]["name"] = profiles[i].name();
+        root[i]["steps"] = Json::arrayValue;
+        for(int j=0; j<profiles[i].size(); j++) {
+            root[i]["steps"][j]["temp"] = profiles[i][j].temp;
+            root[i]["steps"][j]["duration"] = profiles[i][j].duration;
+            root[i]["steps"][j]["ramp"] = profiles[i][j].ramp;
+        }
+    }
+
+    return jsonWriter.write(root);
+}
+
+esp_err_t HttpServer::ProfilesIndex(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+
+    std::string jsondata = ctx->SerializedProfiles();
+    httpd_resp_send(req, &jsondata[0], jsondata.size());
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::ProfilesUpdate(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+    Json::Value root;
+    Json::Reader jsonReader;
+
+    // Read body and parse as JSON
+    char *recvBuf = (char *)malloc(req->content_len);
+    if(recvBuf == NULL) {
+        ESP_LOGE(TAG, "Failled to allocate buffer of size %d for HTTP receive content", req->content_len);
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+    httpd_req_recv(req, recvBuf, req->content_len);
+    bool success = jsonReader.parse(recvBuf, recvBuf + req->content_len, root, false);
+    free(recvBuf);
+    
+    if(!success) {
+        ESP_LOGE(TAG, "Failed to parse json in profiles create request");
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Name of the profile to update is provided in the url: `/api/profiles/:name`
+    std::string profileName = GetLastPathNode(req->uri);
+
+    ESP_LOGI(TAG, "Updating profile %s", profileName.c_str());
+
+    Profile newProfile(root["name"].asString().c_str());
+    for(int i=0; i<root["steps"].size(); i++) {
+        Json::Value &jsonStep = root["steps"][i];
+        ProfileStep step = {
+            .temp = (uint8_t)jsonStep["temp"].asInt(),
+            .duration = (uint8_t)jsonStep["duration"].asInt(),
+            .ramp = (uint8_t)jsonStep["ramp"].asInt()
+        };
+        newProfile.addStep(step);
+    }
+
+    ESP_LOGI(TAG, "Updating profile %s", profileName.c_str());
+    success = ctx->mProfileManager->updateProfile(profileName.c_str(), newProfile);
+    if(!success) {
+        httpd_resp_send_500(req);
+        return ESP_OK;
+    }
+    
+    std::string jsondata = ctx->SerializedProfiles();
+    httpd_resp_send(req, &jsondata[0], jsondata.size());
+    return ESP_OK;
+}
+
+esp_err_t HttpServer::ProfilesDestroy(httpd_req_t *req) {
+    HttpServer *ctx = (HttpServer*)req->user_ctx;
+    std::string name = GetLastPathNode(req->uri);
+    bool success = ctx->mProfileManager->deleteProfile(name.c_str());
+    if(!success) {
+        httpd_resp_send_500(req);
+        return ESP_OK;
+    }
+
+    std::string jsondata = ctx->SerializedProfiles();
+    httpd_resp_send(req, &jsondata[0], jsondata.size());    
+    return ESP_OK;
+}
+
 esp_err_t HttpServer::GetFile(httpd_req_t *req) {
     const int CHUNKSIZE = 4096;
     std::string path = "/www";
@@ -159,4 +357,23 @@ esp_err_t HttpServer::GetFile(httpd_req_t *req) {
     httpd_resp_send_chunk(req, NULL, 0);
 
     return ESP_OK;
+}
+
+std::string HttpServer::GetLastPathNode(const char *path) {
+    size_t len = strlen(path);
+    // Ignore trailing slash if present
+    if(path[len-1] == '/') {
+        len--; 
+    }
+    size_t idx = len-1;
+    while(path[idx] != '/' && idx > 0) {
+        idx--;
+    }
+    
+    // Sometimes we stop on a slash, but sometimes we stop on the first character
+    // In the former case, we don't actually want to include the / in return value
+    if(path[idx] == '/') {
+        idx++;
+    }
+    return std::string(path + idx, len-idx);
 }

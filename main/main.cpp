@@ -29,14 +29,6 @@
 
 extern "C" {
 
-static const profile_point_t DEFAULT_PROFILE[] = {
-    {150, 60, 0}, // Preheat
-    {180, 120, 1}, // Soak
-    {245, 15, 0}, // Reflow
-    {150, 25, 1}, // Cooldown
-    {0, 0, 0}, // Terminator
-};
-
 void stimulus_loop(Display &display) {
     uint16_t tempReading = 0;
     uint16_t tempTarget = 100;
@@ -61,7 +53,7 @@ void stimulus_loop(Display &display) {
         display.setTempTarget(tempTarget);
         display.setOutput(output);
         display.setStatus("Meaningless");
-        display.setProfile(DEFAULT_PROFILE, 1, 60);
+        //display.setProfile(DEFAULT_PROFILE, 1, 60);
         display.update();
         vTaskDelay(500 / portTICK_RATE_MS);
 
@@ -72,7 +64,7 @@ void sim_loop(Display &display) {
     Model model;
     Control control(&model, &model);
     ReflowLog log(500);
-    control.setProfile(DEFAULT_PROFILE);
+    //control.setProfile(DEFAULT_PROFILE);
     
     while(1) {
         control.run();
@@ -80,10 +72,10 @@ void sim_loop(Display &display) {
         display.setTempTarget(control.targetTemp());
         display.setOutput(model.getOutput());
         display.setStatus("Simulating");
-        display.setProfile(
-            DEFAULT_PROFILE,
-            control.profileStage(),
-            control.profileElapsedTime());
+        // display.setProfile(
+        //     DEFAULT_PROFILE,
+        //     control.profileStage(),
+        //     control.profileElapsedTime());
         display.update();
         log.log(control.integrationValue(), model.read(), control.targetTemp(), model.getOutput());
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -95,9 +87,11 @@ void main_loop(Display &display, Max31855 &sensor) {
     PowerControl output(PWR_PWM_PIN);
     Control control(&sensor, &output);
     ReflowLog log(500);
-    HttpServer http(&control);
+    ProfileManager profileManager("/storage/profiles.json");
+    profileManager.init();
+    HttpServer http(&control, &profileManager);
     http.init();
-    control.setProfile(DEFAULT_PROFILE);
+    control.setProfile(profileManager.getActiveProfile());
 
     while(1) {
         control.run();
@@ -119,7 +113,7 @@ void main_loop(Display &display, Max31855 &sensor) {
             break;
         }
         display.setProfile(
-            DEFAULT_PROFILE,
+            profileManager.getActiveProfile(),
             control.profileStage(),
             control.profileElapsedTime());
         display.update();
@@ -133,21 +127,21 @@ void app_main() {
     // app_desc = esp_ota_get_app_description();
 
 
+    // Mount partition with the front-end code
     esp_vfs_spiffs_conf_t conf = {
       .base_path = "/www",
       .partition_label = "jsclient",
       .max_files = 10,
       .format_if_mount_failed = false
     };
-
-    // Use settings defined above to initialize and mount SPIFFS filesystem.
-    // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
     ESP_ERROR_CHECK( esp_vfs_spiffs_register(&conf) );
 
-
-    esp_log_level_set("spi_master", ESP_LOG_VERBOSE);
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
-    esp_log_level_set("httpd", ESP_LOG_DEBUG);
+    // Mount partition used for non-volatile storage (e.g. of solder profiles)
+    conf.base_path = "/storage";
+    conf.partition_label = "storage";
+    conf.max_files=10;
+    conf.format_if_mount_failed = true;
+    ESP_ERROR_CHECK( esp_vfs_spiffs_register(&conf) );
 
     SSD1306 ssd1306(GPIO_NUM_4, GPIO_NUM_15, GPIO_NUM_16);
     ssd1306.init();

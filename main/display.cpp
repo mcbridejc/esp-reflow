@@ -19,7 +19,7 @@ void Display::setOutput(uint8_t output) {
     mOutput = output;
 }
 
-void Display::setProfile(const profile_point_t *profile, uint16_t stage, uint16_t sec_into_stage) {
+void Display::setProfile(Profile &profile, uint16_t stage, uint16_t sec_into_stage) {
     mProfile = profile;
     mProfileStage = stage;
     mProfileTime = sec_into_stage;
@@ -38,8 +38,9 @@ void Display::renderProfile(uint16_t left, uint16_t top, uint16_t width, uint16_
     uint16_t x = left;
     uint8_t stageCount = 0;
     uint16_t prevTemp;
-    const profile_point_t *p = mProfile;
-    while(p->duration > 0) {
+
+    for(int i=0; i<mProfile.size(); i++) {
+        const ProfileStep *p = &mProfile[i];
         totalTime += p->duration;
         if(p->temp > maxTemp) {
             maxTemp = p->temp;
@@ -51,8 +52,8 @@ void Display::renderProfile(uint16_t left, uint16_t top, uint16_t width, uint16_
     }
     prevTemp = minTemp;
 
-    p = mProfile;
-    while(p->duration > 0) {
+    for(int i=0; i<mProfile.size(); i++) {
+        const ProfileStep *p = &mProfile[i];
         uint16_t start_x = x;
         uint16_t end_x = x + (width * p->duration) / totalTime;
         x = end_x + 1;
@@ -71,7 +72,6 @@ void Display::renderProfile(uint16_t left, uint16_t top, uint16_t width, uint16_
         }
 
         stageCount++;
-        p++;
     }
     mDisplay->drawLine(left, top, left, top+height);
     mDisplay->drawLine(left, top+height, left+width, top+height);
@@ -110,9 +110,7 @@ void Display::update() {
     mDisplay->drawLine(127, 63 - (mOutput * 64) / 100, 127, 63);
     mDisplay->drawLine(126, 63 - (mOutput * 64) / 100, 126, 63);
 
-    if(mProfile) {
-        renderProfile(63, 0, 58, 28);
-    }
-
+    renderProfile(63, 0, 58, 28);
+    
     mDisplay->display();
 }

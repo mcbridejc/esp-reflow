@@ -12,6 +12,8 @@ include $(IDF_PATH)/make/project.mk
 
 # Build a SPIFFS partition containing the javascript client files
 $(eval $(call spiffs_create_partition_image,jsclient,jsclient-dist,FLASH_IN_PROJECT))
+# Build a SPIFFS partition for storing solder profiles
+$(eval $(call spiffs_create_partition_image,storage,storage))
 
 
 

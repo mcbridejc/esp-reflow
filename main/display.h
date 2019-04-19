@@ -11,7 +11,7 @@ class Display {
 public:
     Display(OLEDDisplay *display) : 
         mDisplay(display),
-        mProfile(NULL),
+        mProfile(),
         mStatus(NULL)
     { }
 
@@ -21,14 +21,14 @@ public:
 
     void setOutput(uint8_t output);
 
-    void setProfile(const profile_point_t *profile, uint16_t stage, uint16_t sec_into_stage);
+    void setProfile(Profile &profile, uint16_t stage, uint16_t sec_into_stage);
 
     void setStatus(const char *status);
 
     void update();
 private:
     OLEDDisplay *mDisplay;
-    const profile_point_t *mProfile;
+    Profile mProfile;
     const char *mStatus;
     uint16_t mProfileStage;
     uint16_t mProfileTime;

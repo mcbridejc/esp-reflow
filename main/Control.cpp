@@ -8,14 +8,13 @@
 #define TEMP_MARGIN 3
 
 // Default controller gains
-#define DEFAULT_KP (3.5)
-#define DEFAULT_KI (0.05)
+#define DEFAULT_KP (5.0)
+#define DEFAULT_KI (0.2)
 #define DEFAULT_KF (0.15)
 
 Control::Control(ISensor *sensor, IOutput *output) :
     mSensor(sensor),
     mOutput(output),
-    mProfile(NULL),
     mProfileStage(0),
     mProfileElapsed(0.0),
     mLastRunTime(0),
@@ -28,7 +27,7 @@ Control::Control(ISensor *sensor, IOutput *output) :
 
 }
 
-void Control::setProfile(const profile_point_t *profile) {
+void Control::setProfile(const Profile &profile) {
     mProfile = profile;
 }
 
@@ -88,13 +87,14 @@ void Control::run() {
 }
 
 void Control::advanceProfile(float curTemp, float dT) {
-    const profile_point_t *p = mProfile + mProfileStage;
-
-    if(p->duration == 0) {
+    if(mProfileStage >= mProfile.size()) {
         // Reached the end of the list
         mTargetTemp = 0;
+        return;
     }
-    
+
+    const ProfileStep *p = &mProfile[mProfileStage];
+
     if(p->ramp) {
         mProfileElapsed += dT;
         float startTemp = 25;
