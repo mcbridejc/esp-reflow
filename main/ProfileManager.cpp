@@ -130,7 +130,7 @@ void ProfileManager::readProfiles() {
     std::vector<std::string> names = root["profiles"].getMemberNames();
     for(auto it=names.begin(); it != names.end(); it++) {
       Profile newProfile((*it).c_str());
-      Json::Value profileNode = root[*it];
+      Json::Value profileNode = root["profiles"][*it];
       for(int i=0; i < profileNode.size(); i++) {
         ProfileStep point = {
           .temp =  (uint16_t)profileNode[i]["temp"].asInt(),
